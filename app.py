@@ -1,4 +1,7 @@
-from flask import Flask, request, session, send_from_directory
+from flask import (
+    Flask, request, session,
+    send_from_directory, render_template
+)
 from flask_mail import Mail, Message
 import os
 
@@ -11,15 +14,17 @@ from engine.gatekeeper import (
 )
 from engine.phantomid import generate_dynamic_id
 from engine.auth import jwt_required
+from engine.vaultcore import (
+    save_file,
+    list_files,
+    file_path
+)
 
 # =====================
 # APP SETUP
 # =====================
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
-
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config.update(
     MAIL_SERVER=MAIL_SERVER,
@@ -33,9 +38,15 @@ mail = Mail(app)
 init_users()
 
 # =====================
-# AUTH ROUTES
+# FRONTEND
 # =====================
+@app.route("/")
+def home():
+    return render_template("index.html")
 
+# =====================
+# AUTH
+# =====================
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
@@ -74,59 +85,43 @@ def verify():
         return {"dynamic_id": token}
     return {"error": "invalid otp"}, 401
 
-
 # =====================
-# PROTECTED ROUTES
+# SECURE AREA
 # =====================
-
 @app.route("/secure", methods=["GET"])
 @jwt_required
 def secure(user):
     return {"status": "authorized", "user": user}
 
-
+# =====================
+# FILE VAULT
+# =====================
 @app.route("/upload", methods=["POST"])
 @jwt_required
 def upload(user):
     if "file" not in request.files:
-        return {"error": "no file"}, 400
+        return {"error": "no file provided"}, 400
 
     file = request.files["file"]
-    user_dir = os.path.join(UPLOAD_FOLDER, user)
-    os.makedirs(user_dir, exist_ok=True)
+    filename = save_file(user, file)
 
-    path = os.path.join(user_dir, file.filename)
-    file.save(path)
-
-    return {"status": "uploaded", "file": file.filename}
+    return {"status": "uploaded", "file": filename}
 
 
 @app.route("/files", methods=["GET"])
 @jwt_required
 def files(user):
-    user_dir = os.path.join(UPLOAD_FOLDER, user)
-    if not os.path.exists(user_dir):
-        return {"files": []}
-    return {"files": os.listdir(user_dir)}
+    return {"files": list_files(user)}
 
 
-@app.route("/download/<filename>")
+@app.route("/download/<filename>", methods=["GET"])
 @jwt_required
 def download(user, filename):
-    return send_from_directory(
-        os.path.join(UPLOAD_FOLDER, user),
-        filename,
-        as_attachment=True
-    )
+    directory = os.path.dirname(file_path(user, filename))
+    return send_from_directory(directory, filename, as_attachment=True)
 
 # =====================
 # RUN
 # =====================
 if __name__ == "__main__":
     app.run(debug=True)
-
-from flask import render_template
-
-@app.route("/")
-def home():
-    return render_template("index.html")
