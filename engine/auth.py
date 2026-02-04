@@ -1,25 +1,34 @@
+import jwt
 from functools import wraps
-from flask import request
-from engine.phantomid import verify_dynamic_id
+from flask import request, session
+from config import SECRET_KEY
 
-def jwt_required(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        auth_header = request.headers.get("Authorization")
+def jwt_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
 
-        if not auth_header:
-            return {"error": "missing token"}, 401
+        token = None
 
-        # Expect: Bearer <token>
-        if not auth_header.startswith("Bearer "):
-            return {"error": "invalid token format"}, 401
+        # 1️⃣ Try Authorization header
+        auth = request.headers.get("Authorization")
+        if auth:
+            token = auth.replace("Bearer ", "")
 
-        token = auth_header.split(" ")[1]
+        # 2️⃣ Fallback to session (AUTO)
+        if not token:
+            token = session.get("dynamic_id")
 
-        user = verify_dynamic_id(token)
-        if not user:
-            return {"error": "invalid or expired token"}, 401
+        if not token:
+            return {"error": "token missing"}, 401
 
-        return func(user, *args, **kwargs)
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            user = payload["user"]
+        except jwt.ExpiredSignatureError:
+            return {"error": "token expired"}, 401
+        except jwt.InvalidTokenError:
+            return {"error": "invalid token"}, 401
 
-    return wrapper
+        return f(user, *args, **kwargs)
+
+    return decorated

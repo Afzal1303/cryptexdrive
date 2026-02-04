@@ -92,3 +92,10 @@ def verify_otp(username, code):
         return False
 
     return otp == code
+
+def get_email(username):
+    db = get_db()
+    cur = db.execute("SELECT email FROM users WHERE username=?", (username,))
+    row = cur.fetchone()
+    db.close()
+    return row[0] if row else None

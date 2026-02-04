@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>CryptexDrive</title>
+    <title>CryptexDrive</title>
+    <script src="/static/script.js"></script>
 </head>
 <body>
+
+<h2>Register</h2>
+<input id="regUsername" placeholder="Username"><br>
+<input id="regPassword" type="password" placeholder="Password"><br>
+<input id="regEmail" placeholder="Email"><br>
+<button onclick="register()">Register</button>
+
+<hr>
 
 <h2>Login</h2>
 <input id="username" placeholder="Username"><br>
@@ -11,15 +20,24 @@
 <button onclick="login()">Login</button>
 
 <h2>OTP</h2>
-<input id="email" placeholder="Email"><br>
-<button onclick="sendOTP()">Send OTP</button><br><br>
+<p>Click below to receive OTP on your registered email.</p>
+<button onclick="sendOtp()">Send OTP</button><br><br>
 
 <input id="otp" placeholder="Enter OTP"><br>
-<button onclick="verifyOTP()">Verify OTP</button>
+<button onclick="verifyOtp()">Verify OTP</button>
 
 <h2>Secure Area</h2>
 <button onclick="accessSecure()">Access Secure</button>
 
-<script src="/static/app.js"></script>
+<hr>
+
+<h2>File Management</h2>
+<input type="file" id="fileInput">
+<button onclick="uploadFile()">Upload</button>
+<button onclick="loadFiles()">Refresh Files</button>
+
+<h3>My Files</h3>
+<ul id="fileList"></ul>
+
 </body>
 </html>
