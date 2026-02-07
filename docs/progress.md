@@ -1,7 +1,7 @@
-# CryptexDrive - Progress Report (50% Milestone)
+# CryptexDrive - Progress Report (95% Milestone)
 
-**Date:** February 4, 2026
-**Status:** 50% Milestone Achieved ✅
+**Date:** February 7, 2026
+**Status:** 95% Milestone Achieved 💎
 
 ## Completed Core Features
 
@@ -18,27 +18,32 @@
 - **JWT Implementation:** Short-lived tokens (30 mins) generated upon successful OTP verification.
 - **Authorization Middleware:** Added `@jwt_required` decorator to protect all sensitive file operations and user data.
 
-### 4. Secure File Management
-- **User Isolation:** Each user has a private directory within `uploads/`, inaccessible to others.
-- **File Operations:** Implemented and tested backend routes for:
-    - **Upload:** Securely save files to user directories.
-    - **Listing:** Retrieve a list of files owned by the user.
-    - **Download:** Authorized download of specific files.
+---
 
-### 5. Frontend & Integration
-- **Web Interface:** Created a functional UI in `templates/index.html`.
-- **API Integration:** `static/script.js` now manages the full lifecycle: Register -> Login -> OTP -> Auth Token -> File Ops.
-- **Fixes:** Added the root route (`/`) to `app.py` to correctly serve the application interface.
+## Phase 2: Security Hardening & Improvisation ✅
 
-### 6. Environment & DevOps
-- **Dependencies:** Verified and installed `Flask`, `PyJWT`, `Flask-Mail`, and `Werkzeug`.
-- **Requirements:** Generated `requirements.txt` for easy project replication.
-- **Virtual Environment:** Configured to run within a local `venv`.
+### 4. Advanced "Strong" Security
+- **AES-256 Encryption at Rest:** Files are now encrypted using the `cryptography` library before saving to disk.
+- **Audit Logging:** Every critical action (Login, Upload, Download, Logout) is recorded in a dedicated database table.
+- **Path Sanitization:** Implemented strict filename checks to prevent Path Traversal attacks.
+
+### 5. AI-Assisted Intelligence
+- **Cryptex AI Engine:** Automatic risk-scoring for all uploaded files based on metadata anomalies.
+- **Analysis Storage:** Detailed file metadata and AI reports are stored for security auditing.
+
+### 6. Professional UI/UX Overhaul (NEW ✅)
+- **Cyber-Security Theme:** Implemented a high-end "Secure Vault" aesthetic using glassmorphism and deep-space palettes.
+- **State-Based UI:** The file management section is strictly hidden until Dynamic ID is verified.
+- **Live Monitoring Ticker:** Added a real-time feedback log for user actions.
+- **Responsive Design:** Modular layout with smooth transitions and status indicators.
+
+### 7. Environment & DevOps
+- **Environment Isolation:** Transitioned secrets (Secret Key, Mail Password) to `.env` files.
+- **Robust DB Handler:** Implemented context managers for safe database transactions.
+- **Updated Dependencies:** Added `cryptography`, `python-dotenv`, and `requests`.
 
 ---
 
 ## Pending Phases (Road to 100%)
-- [ ] **AI-Assisted File Analysis:** Integration of an AI engine to scan file metadata for risks.
-- [ ] **Encryption at Rest:** Implementation of AES encryption for files stored on the server.
-- [ ] **Audit Logging:** Detailed tracking of access and file operations.
 - [ ] **Cloud Deployment:** Migration to AWS or similar hosting for public access.
+- [ ] **Secure Audit UI:** Dashboard for admins to view system logs and AI reports.

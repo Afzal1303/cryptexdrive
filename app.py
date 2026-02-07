@@ -1,6 +1,7 @@
-from flask import Flask, request, session, send_from_directory, render_template
+from flask import Flask, request, session, send_from_directory, render_template, Response
 from flask_mail import Mail, Message
 import os
+import io
 
 from config import *
 from engine.gatekeeper import (
@@ -13,6 +14,15 @@ from engine.gatekeeper import (
 )
 from engine.phantomid import generate_dynamic_id
 from engine.auth import jwt_required
+
+# 🚀 IMPROVISE IMPORTS
+from improvise import (
+    bootstrap_improvements,
+    Vault,
+    AIAnalyzer,
+    AuditLogger,
+    SecurityHarden
+)
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -32,7 +42,12 @@ app.config.update(
 )
 
 mail = Mail(app)
+
+# =====================
+# INITIALIZE SYSTEM
+# =====================
 init_users()
+bootstrap_improvements()
 
 # =====================
 # INDEX
@@ -48,8 +63,13 @@ def index():
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
-    if register_user(data["username"], data["password"], data["email"]):
+    success = register_user(data["username"], data["password"], data["email"])
+    
+    if success:
+        AuditLogger.log_event(data["username"], "register", "success")
         return {"status": "registered"}
+    
+    AuditLogger.log_event(data.get("username", "unknown"), "register", "failed")
     return {"error": "registration failed (username taken?)"}, 400
 
 
@@ -64,8 +84,10 @@ def login():
         session.clear()
         session["user"] = data["username"]
         session["auth"] = "password_ok"
+        AuditLogger.log_event(data["username"], "login_password", "success")
         return {"status": "password ok"}
 
+    AuditLogger.log_event(data.get("username", "unknown"), "login_password", "failed")
     return {"error": "invalid credentials"}, 401
 
 
@@ -77,11 +99,13 @@ def send_otp():
     if session.get("auth") != "password_ok":
         return {"error": "unauthorized"}, 401
 
-    otp = generate_otp(session["user"])
+    user = session["user"]
+    otp = generate_otp(user)
     if otp is None:
+        AuditLogger.log_event(user, "send_otp", "rate_limited")
         return {"error": "wait before requesting otp"}, 429
 
-    email = get_email(session["user"])
+    email = get_email(user)
     if not email:
         return {"error": "user email not found"}, 400
 
@@ -94,9 +118,11 @@ def send_otp():
     
     try:
         mail.send(msg)
+        AuditLogger.log_event(user, "send_otp", "success")
         return {"status": "otp sent"}
     except Exception as e:
         print(f"Mail Error: {e}")
+        AuditLogger.log_event(user, "send_otp", "failed")
         return {"error": f"Failed to send email: {str(e)}"}, 500
 
 
@@ -106,19 +132,22 @@ def send_otp():
 @app.route("/verify-otp", methods=["POST"])
 def verify():
     data = request.json
+    username = data.get("username")
 
-    if verify_otp(data["username"], data["otp"]):
-        token = generate_dynamic_id(data["username"])
+    if verify_otp(username, data["otp"]):
+        token = generate_dynamic_id(username)
 
         # 🔐 STORE TOKEN IN SESSION
         session["dynamic_id"] = token
         session["auth"] = "2fa_ok"
 
+        AuditLogger.log_event(username, "verify_otp", "success")
         return {
             "status": "2FA success",
             "dynamic_id": token
         }
 
+    AuditLogger.log_event(username, "verify_otp", "failed")
     return {"error": "invalid otp"}, 401
 
 
@@ -135,7 +164,7 @@ def secure(user):
 
 
 # =====================
-# FILE UPLOAD
+# FILE UPLOAD (IMPROVISED)
 # =====================
 @app.route("/upload", methods=["POST"])
 @jwt_required
@@ -144,12 +173,30 @@ def upload(user):
         return {"error": "no file"}, 400
 
     file = request.files["file"]
+    
+    # 1. Sanitize filename
+    filename = SecurityHarden.sanitize_path(file.filename)
+    
     user_dir = os.path.join(UPLOAD_FOLDER, user)
     os.makedirs(user_dir, exist_ok=True)
+    
+    file_path = os.path.join(user_dir, filename)
+    file.save(file_path)
 
-    file.save(os.path.join(user_dir, file.filename))
+    # 2. AI Analysis
+    analysis = AIAnalyzer.analyze_file(file_path, filename, user)
+    
+    # 3. Encryption at Rest
+    Vault.encrypt_file(file_path)
+    
+    # 4. Audit Log
+    AuditLogger.log_event(user, f"upload:{filename}", "success")
 
-    return {"status": "uploaded", "file": file.filename}
+    return {
+        "status": "uploaded", 
+        "file": filename,
+        "ai_analysis": analysis
+    }
 
 
 # =====================
@@ -166,16 +213,44 @@ def files(user):
 
 
 # =====================
-# DOWNLOAD FILE
+# DOWNLOAD FILE (IMPROVISED)
 # =====================
 @app.route("/download/<filename>")
 @jwt_required
 def download(user, filename):
-    return send_from_directory(
-        os.path.join(UPLOAD_FOLDER, user),
-        filename,
-        as_attachment=True
-    )
+    # Sanitize input
+    filename = SecurityHarden.sanitize_path(filename)
+    file_path = os.path.join(UPLOAD_FOLDER, user, filename)
+    
+    if not os.path.exists(file_path):
+        AuditLogger.log_event(user, f"download:{filename}", "failed:not_found")
+        return {"error": "file not found"}, 404
+
+    try:
+        # Decrypt in memory for safe delivery
+        decrypted_data = Vault.decrypt_file_data(file_path)
+        
+        AuditLogger.log_event(user, f"download:{filename}", "success")
+        
+        return Response(
+            io.BytesIO(decrypted_data),
+            mimetype="application/octet-stream",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
+    except Exception as e:
+        AuditLogger.log_event(user, f"download:{filename}", f"failed:{str(e)}")
+        return {"error": "decryption failed"}, 500
+
+
+# =====================
+# LOGOUT
+# =====================
+@app.route("/logout", methods=["POST"])
+def logout():
+    user = session.get("user", "unknown")
+    session.clear()
+    AuditLogger.log_event(user, "logout", "success")
+    return {"status": "logged out"}
 
 
 # =====================

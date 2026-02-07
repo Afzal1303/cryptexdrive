@@ -1,3 +1,29 @@
+let TOKEN = "";
+
+function addLog(msg) {
+    const ticker = document.getElementById("logTicker");
+    if (ticker) {
+        ticker.innerText = `> ${msg}`;
+    }
+}
+
+function toggleAuth(isRegister) {
+    document.getElementById("registerForm").style.display = isRegister ? "block" : "none";
+    document.getElementById("loginForm").style.display = isRegister ? "none" : "block";
+    addLog(isRegister ? "Switching to Registration..." : "Switching to Login...");
+}
+
+function initUI() {
+    // Check if we have a token in session (fallback)
+    const fileSection = document.getElementById("fileSection");
+    const authSection = document.getElementById("authSection");
+    
+    if (TOKEN) {
+        fileSection.style.display = "block";
+        authSection.style.display = "none";
+    }
+}
+
 // REGISTER
 async function register() {
     const username = document.getElementById("regUsername").value;
@@ -11,7 +37,7 @@ async function register() {
     });
 
     const data = await res.json();
-    alert(JSON.stringify(data));
+    alert(data.status || data.error);
 }
 
 // LOGIN
@@ -19,6 +45,7 @@ async function login() {
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
 
+    addLog(`Attempting login for: ${username}`);
     const res = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -26,7 +53,12 @@ async function login() {
     });
 
     const data = await res.json();
-    alert(JSON.stringify(data));
+    if (res.ok) {
+        document.getElementById("otpSection").style.display = "block";
+        alert("Password OK. Please request OTP.");
+    } else {
+        alert(data.error);
+    }
 }
 
 // SEND OTP
@@ -38,12 +70,10 @@ async function sendOtp() {
     });
 
     const data = await res.json();
-    alert(JSON.stringify(data));
+    alert(data.status || data.error);
 }
 
 // VERIFY OTP
-let TOKEN = "";
-
 async function verifyOtp() {
     const otp = document.getElementById("otp").value;
     const username = document.getElementById("username").value;
@@ -57,10 +87,12 @@ async function verifyOtp() {
     const data = await res.json();
     if (data.dynamic_id) {
         TOKEN = data.dynamic_id;
-        alert("OTP Verified!");
+        document.getElementById("displayUser").innerText = username;
+        document.getElementById("authSection").style.display = "none";
+        document.getElementById("fileSection").style.display = "block";
         loadFiles();
     } else {
-        alert(JSON.stringify(data));
+        alert(data.error);
     }
 }
 
@@ -69,7 +101,6 @@ async function accessSecure() {
     const res = await fetch("/secure", {
         headers: { "Authorization": TOKEN }
     });
-
     const data = await res.json();
     alert(JSON.stringify(data));
 }
@@ -94,12 +125,27 @@ async function uploadFile() {
     });
 
     const data = await res.json();
+    if (res.status === 401) {
+        logout();
+        return;
+    }
+
     if (data.status === "uploaded") {
-        alert("Upload successful!");
+        alert("Upload successful! AI Risk Score: " + data.ai_analysis.risk_score);
         loadFiles();
     } else {
         alert("Upload failed: " + JSON.stringify(data));
     }
+}
+
+// LOGOUT
+async function logout() {
+    await fetch("/logout", { method: "POST" });
+    TOKEN = "";
+    document.getElementById("authSection").style.display = "block";
+    document.getElementById("fileSection").style.display = "none";
+    document.getElementById("otpSection").style.display = "none";
+    location.reload();
 }
 
 // LOAD FILES
@@ -115,8 +161,6 @@ async function loadFiles() {
     if (data.files) {
         data.files.forEach(filename => {
             const li = document.createElement("li");
-            // Use session cookie for download link or fetch blob if strict header needed.
-            // Since we have session fallback in auth.py, href works.
             li.innerHTML = `${filename} <a href="/download/${filename}" target="_blank">[Download]</a>`;
             list.appendChild(li);
         });

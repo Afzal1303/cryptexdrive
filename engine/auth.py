@@ -18,8 +18,8 @@ def jwt_required(f):
         if not token:
             token = session.get("dynamic_id")
 
-        if not token:
-            return {"error": "token missing"}, 401
+        if not token or not isinstance(token, str) or len(token) < 10:
+            return {"error": "valid token missing"}, 401
 
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])

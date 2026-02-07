@@ -1,88 +1,259 @@
-* { box-sizing:border-box; }
+:root {
+    --bg-dark: #050a15;
+    --bg-darker: #020617;
+    --accent: #00f2ff;
+    --accent-glow: rgba(0, 242, 255, 0.4);
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(0, 242, 255, 0.2);
+    --text-main: #e2e8f0;
+    --text-dim: #94a3b8;
+    --danger: #ff4d4d;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
 body {
-  margin:0;
-  height:100vh;
-  font-family: "Segoe UI", sans-serif;
-  background: linear-gradient(120deg,#050a15,#020617);
-  color:#fff;
+    font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at center, #0a192f, #020617);
+    color: var(--text-main);
+    height: 100vh;
+    overflow: hidden;
 }
 
 .layout {
-  display:flex;
-  height:100%;
+    display: flex;
+    height: 100%;
 }
 
+/* LEFT SIDE - BRANDING */
 .left {
-  flex:1;
-  padding:80px;
-  background: radial-gradient(circle at top,#0ff2,#000);
+    flex: 0.8;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(to right, rgba(0, 242, 255, 0.05), transparent);
+    border-right: 1px solid var(--glass-border);
 }
 
-.left h1 {
-  font-size:48px;
-  color:#00f2ff;
+.brand h1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: -2px;
 }
 
-.left ul { list-style:none; padding:0; }
-.left li { margin:10px 0; color:#9ff; }
+.highlight {
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent-glow);
+}
 
+.tagline {
+    color: var(--text-dim);
+    margin-top: 10px;
+    font-size: 1.1rem;
+}
+
+.features {
+    margin-top: 50px;
+}
+
+.features h3 {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 20px;
+}
+
+.features ul {
+    list-style: none;
+}
+
+.features li {
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.pulse-green { background: #10b981; box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite; }
+.pulse-blue { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: pulse 2s infinite; }
+
+@keyframes pulse {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+
+/* RIGHT SIDE - ACTIONS */
 .right {
-  flex:1;
-  display:flex;
-  justify-content:center;
-  align-items:center;
+    flex: 1.2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
 }
 
 .glass {
-  width:380px;
-  padding:30px;
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(15px);
-  border-radius:16px;
-  border:1px solid rgba(0,255,255,0.3);
-  box-shadow:0 0 50px rgba(0,255,255,0.3);
-  animation: glow 3s infinite alternate;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
-@keyframes glow {
-  from { box-shadow:0 0 20px #0ff; }
-  to { box-shadow:0 0 50px #0ff; }
+.card {
+    width: 450px;
+    transition: all 0.5s ease;
+}
+
+.full-card {
+    width: 80%;
+    max-width: 800px;
+    height: 80%;
+}
+
+/* FORMS */
+h2 {
+    margin-bottom: 25px;
+    font-weight: 600;
 }
 
 input {
-  width:100%;
-  margin:10px 0;
-  padding:12px;
-  background:#000;
-  border:1px solid #00f2ff;
-  color:#0ff;
-  border-radius:6px;
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 15px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    color: white;
+    font-family: 'JetBrains Mono', monospace;
 }
 
+input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* BUTTONS */
 button {
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  background:linear-gradient(45deg,#00f2ff,#00ffcc);
-  border:none;
-  color:#000;
-  font-weight:bold;
-  border-radius:8px;
-  cursor:pointer;
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-button:hover { transform:scale(1.05); }
-
-hr {
-  margin:20px 0;
-  border:0;
-  height:1px;
-  background:rgba(255,255,255,0.2);
+.btn-primary {
+    background: var(--accent);
+    color: #020617;
 }
 
-#status {
-  margin-top:15px;
-  text-align:center;
-  color:#0ff;
+.btn-primary:hover {
+    box-shadow: 0 0 25px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+.btn-danger {
+    background: rgba(255, 77, 77, 0.1);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+}
+
+.btn-danger:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.switch-mode {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+.switch-mode a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+/* FILE EXPLORER */
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    width: auto;
+}
+
+.header-actions button {
+    width: auto;
+    padding: 8px 16px;
+}
+
+.file-grid {
+    list-style: none;
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.file-grid li {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid transparent;
+}
+
+.file-grid li:hover {
+    border-color: var(--accent-glow);
+}
+
+.file-grid a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.8rem;
+    background: rgba(0, 242, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.ticker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #10b981;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    border-radius: 8px;
 }

@@ -58,6 +58,10 @@ Werkzeug Security (password hashing)
 
 PyJWT (Dynamic ID generation)
 
+Cryptography (AES-256 encryption at rest)
+
+Python-Dotenv (Environment variable management)
+
 Security Components
 
 Password hashing (PBKDF2)
@@ -69,6 +73,59 @@ Time-limited JWT tokens (Dynamic ID)
 Decorator-based authorization
 
 User-isolated file storage
+
+5. Operational Rules & User Preferences
+Deep Thinking & Verification
+
+All architectural decisions must be:
+
+Clearly explained
+
+Logically justified
+
+Security-focused
+
+Explicit Approval Required
+
+No major change may be:
+
+Written
+
+Implemented
+
+Refactored
+
+without explicit user permission.
+
+Structure-First Rule
+
+Folder structures explained before creation
+
+Purpose clarified before implementation
+
+Pre-Action Explanation
+
+Before any code or file creation:
+
+Explain what will be done
+
+Explain why it is required
+
+External Code Review (Pro Mode)
+
+Any external suggestions must be evaluated for:
+
+Security
+
+Scalability
+
+Alignment with CryptexDrive goals
+
+Strict Permission Protocol
+
+Actions require confirmation:
+
+Example: “Proceed”
 
 4. Authentication & Authorization Flow (Verified)
 
@@ -227,40 +284,38 @@ Dynamic ID (JWT) generation
 
 Authorization middleware
 
-Secure file upload
+Secure file upload (with AES-256 encryption)
 
 File listing & download logic
 
-Frontend integration
-
-⏳ Pending Phases
-
-AI-assisted file analysis
-
-Cloud Deployment (AWS / Render / Railway)
+AI-assisted file analysis (Cryptex AI Engine)
 
 Secure audit logging
 
-File encryption at rest
+Professional Frontend Overhaul (Secure Vault Theme)
 
-Access activity tracking
+⏳ Pending Phases
 
-11. AI Engine – Operational Rules (Approved)
+Cloud Deployment (AWS / Render / Railway)
 
-⚠️ AI Engine is not implemented yet.
-This section defines strict rules that the AI must follow once added.
+Advanced Access activity tracking UI
+
+11. AI Engine – Operational Rules (Active)
+
+The AI Engine is now a core component of the "Improvisation" module.
+This section defines the strict rules that the AI follows.
 
 AI Engine Scope
 
-The AI engine will:
+The AI engine:
 
-Analyze file metadata
+Analyzes file metadata during upload
 
-Detect potential risks
+Calculates a risk score (0-100)
 
-Suggest improvements
+Detects extension mismatches and size anomalies
 
-The AI engine will not enforce actions.
+Logs reports to the `file_metadata` table
 
 AI Operational Rules
 
@@ -280,58 +335,6 @@ AI must be strictly read-only
 
 AI output must be explainable and auditable
 
-12. Operational Rules & User Preferences
-Deep Thinking & Verification
-
-All architectural decisions must be:
-
-Clearly explained
-
-Logically justified
-
-Security-focused
-
-Explicit Approval Required
-
-No major change may be:
-
-Written
-
-Implemented
-
-Refactored
-
-without explicit user permission.
-
-Structure-First Rule
-
-Folder structures explained before creation
-
-Purpose clarified before implementation
-
-Pre-Action Explanation
-
-Before any code or file creation:
-
-Explain what will be done
-
-Explain why it is required
-
-External Code Review (Pro Mode)
-
-Any external suggestions must be evaluated for:
-
-Security
-
-Scalability
-
-Alignment with CryptexDrive goals
-
-Strict Permission Protocol
-
-Actions require confirmation:
-
-Example: “Proceed”
 
 13. Virtual Environment & Execution Rules
 
@@ -377,26 +380,30 @@ CryptexDrive/
 ├── docs/                       # Project documentation & notes
 │
 ├── engine/                     # Core security & authentication engine
-│   ├── __init__.py
 │   ├── auth.py                 # JWT (Dynamic ID) authorization middleware
 │   ├── gatekeeper.py           # User auth, OTP logic, password verification
 │   ├── phantomid.py            # Dynamic ID (JWT) generator
-│   └── vaultcore.py            # Security utilities (reserved for expansion)
+│   └── vaultcore.py            # Security utilities
+│
+├── improvise/                  # Advanced security & AI modules
+│   ├── ai_analyzer.py          # AI risk scoring engine
+│   ├── audit.py                # Security audit logger
+│   ├── db.py                   # Hardened DB context managers
+│   ├── vault.py                # AES-256 Encryption handler
+│   └── security.py             # Path sanitization & defense
 │
 ├── static/                     # Frontend static assets
-│   ├── script.js               # Frontend logic
-│   └── styles.css              # UI styling
+│   ├── script.js               # Frontend logic & UI states
+│   └── styles.css              # Cyber-security vault styling
 │
 ├── templates/                  # HTML templates
-│   └── index.html              # Main UI page
+│   └── index.html              # Modern glassmorphism UI
 │
-├── uploads/                    # User file storage
-│   └── afz/                    # Per-user isolated directory
-│
+├── uploads/                    # User file storage (Encrypted)
 ├── venv/                       # Python virtual environment
-│
-├── app.py                      # Application entry point (Flask server)
-├── config.py                   # Configuration (mail, secrets, settings)
+├── .env                        # Environment variables (Secrets)
+├── app.py                      # Application entry point (Integrated)
+├── config.py                   # Configuration loader
 ├── cryptex.db                  # SQLite database
 └── database.py                 # Database helper utilities
 
@@ -405,7 +412,8 @@ Component	Status
 Login	✅ Completed
 OTP	✅ Completed
 Dynamic ID	✅ Completed
-File Upload	✅ Completed
-Authorization	✅ Completed
-Frontend Integration	✅ Basic Impl
-Cloud Deployment	❌ Pending
+Encryption	✅ AES-256 Active
+AI Engine	✅ Active
+Audit Logs	✅ Active
+UI Overhaul	✅ Cyber Vault (95%)
+Cloud Deploy	❌ Pending

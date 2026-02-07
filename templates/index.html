@@ -1,43 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>CryptexDrive</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptexDrive | Secure Vault</title>
+    <link rel="stylesheet" href="/static/styles.css">
     <script src="/static/script.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
 </head>
-<body>
+<body onload="initUI()">
 
-<h2>Register</h2>
-<input id="regUsername" placeholder="Username"><br>
-<input id="regPassword" type="password" placeholder="Password"><br>
-<input id="regEmail" placeholder="Email"><br>
-<button onclick="register()">Register</button>
+<div class="layout">
+    <div class="left">
+        <div class="brand">
+            <h1>CRYPTEX<span class="highlight">DRIVE</span></h1>
+            <p class="tagline">Military-Grade Encryption. AI-Driven Security.</p>
+        </div>
+        
+        <div class="features">
+            <h3>System Status</h3>
+            <ul>
+                <li><span class="dot pulse-green"></span> AES-256 Encryption Active</li>
+                <li><span class="dot pulse-green"></span> AI Risk Analysis Ready</li>
+                <li><span class="dot pulse-blue"></span> Dynamic ID Protocol v2.0</li>
+            </ul>
+        </div>
 
-<hr>
+        <div id="auditStatus">
+            <h3>Live Monitoring</h3>
+            <div id="logTicker" class="ticker">
+                System Initialized...
+            </div>
+        </div>
+    </div>
 
-<h2>Login</h2>
-<input id="username" placeholder="Username"><br>
-<input id="password" type="password" placeholder="Password"><br>
-<button onclick="login()">Login</button>
+    <div class="right">
+        <!-- AUTH SECTION -->
+        <div id="authSection" class="glass card">
+            <div id="registerForm">
+                <h2>Create Account</h2>
+                <input id="regUsername" placeholder="Choose Username">
+                <input id="regPassword" type="password" placeholder="Secure Password">
+                <input id="regEmail" placeholder="Email Address">
+                <button onclick="register()" class="btn-primary">Initialize Access</button>
+                <p class="switch-mode">Already have an account? <a href="#" onclick="toggleAuth(false)">Login</a></p>
+            </div>
 
-<h2>OTP</h2>
-<p>Click below to receive OTP on your registered email.</p>
-<button onclick="sendOtp()">Send OTP</button><br><br>
+            <div id="loginForm" style="display: none;">
+                <h2>Secure Login</h2>
+                <input id="username" placeholder="Username">
+                <input id="password" type="password" placeholder="Password">
+                <button onclick="login()" class="btn-primary">Verify Credentials</button>
+                <p class="switch-mode">New user? <a href="#" onclick="toggleAuth(true)">Register</a></p>
+            </div>
 
-<input id="otp" placeholder="Enter OTP"><br>
-<button onclick="verifyOtp()">Verify OTP</button>
+            <div id="otpSection" style="display: none;">
+                <h2>Multi-Step Verification</h2>
+                <p>A verification code has been generated for your security.</p>
+                <button onclick="sendOtp()" class="btn-secondary">Send OTP to Email</button>
+                <input id="otp" placeholder="Enter 6-Digit Code">
+                <button onclick="verifyOtp()" class="btn-primary">Unlock Vault</button>
+            </div>
+        </div>
 
-<h2>Secure Area</h2>
-<button onclick="accessSecure()">Access Secure</button>
+        <!-- FILE SECTION -->
+        <div id="fileSection" class="glass card full-card" style="display: none;">
+            <div class="user-header">
+                <h2>Vault: <span id="displayUser" class="highlight"></span></h2>
+                <div class="header-actions">
+                    <button onclick="accessSecure()" class="btn-icon">🛡️ Status</button>
+                    <button onclick="logout()" class="btn-danger">Lock Vault</button>
+                </div>
+            </div>
 
-<hr>
+            <div class="upload-zone">
+                <h3>Secure Upload</h3>
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput">
+                </div>
+                <button onclick="uploadFile()" class="btn-primary">Encrypted Upload</button>
+            </div>
 
-<h2>File Management</h2>
-<input type="file" id="fileInput">
-<button onclick="uploadFile()">Upload</button>
-<button onclick="loadFiles()">Refresh Files</button>
+            <hr>
 
-<h3>My Files</h3>
-<ul id="fileList"></ul>
+            <div class="file-explorer">
+                <div class="explorer-header">
+                    <h3>Stored Artifacts</h3>
+                    <button onclick="loadFiles()" class="btn-small">Refresh</button>
+                </div>
+                <ul id="fileList" class="file-grid"></ul>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
