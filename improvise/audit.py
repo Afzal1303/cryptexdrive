@@ -13,3 +13,15 @@ class AuditLogger:
                 VALUES (?, ?, ?, ?)
             """, (username, action, status, ip))
         print(f"[AUDIT] {username} performed {action}: {status}")
+
+    @staticmethod
+    def get_all_logs(limit=100):
+        """Retrieves the latest system logs."""
+        with get_db_context() as db:
+            logs = db.execute("""
+                SELECT timestamp, username, action, status, ip_address 
+                FROM audit_logs 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            """, (limit,)).fetchall()
+            return [dict(log) for log in logs]

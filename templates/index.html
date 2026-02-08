@@ -52,6 +52,9 @@
                 <input id="password" type="password" placeholder="Password">
                 <button onclick="login()" class="btn-primary">Verify Credentials</button>
                 <p class="switch-mode">New user? <a href="#" onclick="toggleAuth(true)">Register</a></p>
+                <p class="switch-mode" style="margin-top: 15px; font-size: 0.8em; opacity: 0.6;">
+                    System Administrator? <a href="/admin/login">Admin Gateway</a>
+                </p>
             </div>
 
             <div id="otpSection" style="display: none;">
@@ -67,6 +70,9 @@
         <div id="fileSection" class="glass card full-card" style="display: none;">
             <div class="user-header">
                 <h2>Vault: <span id="displayUser" class="highlight"></span></h2>
+                <div id="adminLink" style="display: none; margin-left: 20px;">
+                    <a href="/admin/dashboard" class="btn-secondary" style="text-decoration: none; padding: 5px 10px;">Admin Dashboard</a>
+                </div>
                 <div class="header-actions">
                     <button onclick="accessSecure()" class="btn-icon">🛡️ Status</button>
                     <button onclick="logout()" class="btn-danger">Lock Vault</button>

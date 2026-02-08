@@ -1,7 +1,10 @@
-from flask import Flask, request, session, send_from_directory, render_template, Response
+from flask import Flask, request, session, send_from_directory, render_template, Response, redirect, url_for
 from flask_mail import Mail, Message
+import jwt
 import os
 import io
+import re
+import shutil
 
 from config import *
 from engine.gatekeeper import (
@@ -10,10 +13,12 @@ from engine.gatekeeper import (
     generate_otp,
     verify_otp,
     register_user,
-    get_email
+    get_email,
+    is_admin,
+    delete_user_db
 )
 from engine.phantomid import generate_dynamic_id
-from engine.auth import jwt_required
+from engine.auth import jwt_required, admin_required
 
 # 🚀 IMPROVISE IMPORTS
 from improvise import (
@@ -58,12 +63,103 @@ def index():
 
 
 # =====================
+# ADMIN DASHBOARD & LOGIN
+# =====================
+@app.route("/admin/login")
+def admin_login_page():
+    return render_template("admin_login.html")
+
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login_api():
+    data = request.json
+    if not data or not all(k in data for k in ("username", "password")):
+        return {"error": "missing credentials"}, 400
+
+    username = data["username"]
+    if verify_user(username, data["password"]):
+        if not is_admin(username):
+            AuditLogger.log_event(username, "admin_login_attempt", "failed:not_admin")
+            return {"error": "Access Denied: Not an administrator"}, 403
+            
+        session.clear()
+        session["user"] = username
+        session["auth"] = "password_ok"
+        AuditLogger.log_event(username, "admin_login_password", "success")
+        return {"status": "password ok"}
+
+    AuditLogger.log_event(data.get("username", "unknown"), "admin_login_password", "failed")
+    return {"error": "invalid credentials"}, 401
+
+@app.route("/admin/dashboard")
+def admin_dashboard_page():
+    token = session.get("dynamic_id")
+    if not token:
+        return redirect(url_for("admin_login_page"))
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user = payload["user"]
+        if not is_admin(user):
+            AuditLogger.log_event(user, "admin_dashboard_access", "denied:not_admin")
+            return "Access Denied", 403
+        return render_template("admin.html")
+    except Exception:
+        return redirect(url_for("admin_login_page"))
+
+@app.route("/api/admin/logs")
+@admin_required
+def get_admin_logs(user):
+    logs = AuditLogger.get_all_logs()
+    return {"logs": logs}
+
+@app.route("/api/admin/stats")
+@admin_required
+def get_admin_stats(user):
+    from improvise.db import get_db_context
+    stats = {}
+    
+    with get_db_context() as db:
+        # Total Users
+        stats["total_users"] = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        
+        # Total Files
+        stats["total_files"] = db.execute("SELECT COUNT(*) FROM file_metadata").fetchone()[0]
+        
+        # Average Risk Score
+        avg_risk = db.execute("SELECT AVG(risk_score) FROM file_metadata").fetchone()[0]
+        stats["avg_risk"] = round(avg_risk, 1) if avg_risk else 0
+        
+        # Quarantined Files
+        stats["quarantined"] = db.execute("SELECT COUNT(*) FROM file_metadata WHERE is_active=0").fetchone()[0]
+        
+        # Risk Distribution (Safe, Warning, Critical)
+        stats["risk_dist"] = {
+            "safe": db.execute("SELECT COUNT(*) FROM file_metadata WHERE risk_score < 50").fetchone()[0],
+            "warning": db.execute("SELECT COUNT(*) FROM file_metadata WHERE risk_score >= 50 AND risk_score < 80").fetchone()[0],
+            "critical": db.execute("SELECT COUNT(*) FROM file_metadata WHERE risk_score >= 80").fetchone()[0]
+        }
+        
+    return stats
+
+
+# =====================
 # REGISTER
 # =====================
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
-    success = register_user(data["username"], data["password"], data["email"])
+    if not data or not all(k in data for k in ("username", "password", "email")):
+        return {"error": "missing required fields"}, 400
+    
+    username = data["username"]
+    if not username or not data["password"] or not data["email"]:
+        return {"error": "fields cannot be empty"}, 400
+
+    # 🛡️ SANITIZE USERNAME
+    if not re.match(r"^[a-zA-Z0-9_]+$", username):
+        return {"error": "invalid username (only alphanumeric and underscores allowed)"}, 400
+
+    success = register_user(username, data["password"], data["email"])
     
     if success:
         AuditLogger.log_event(data["username"], "register", "success")
@@ -79,6 +175,8 @@ def register():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
+    if not data or not all(k in data for k in ("username", "password")):
+        return {"error": "missing credentials"}, 400
 
     if verify_user(data["username"], data["password"]):
         session.clear()
@@ -131,20 +229,32 @@ def send_otp():
 # =====================
 @app.route("/verify-otp", methods=["POST"])
 def verify():
-    data = request.json
-    username = data.get("username")
+    if session.get("auth") != "password_ok":
+        return {"error": "unauthorized session state"}, 401
 
-    if verify_otp(username, data["otp"]):
+    data = request.json
+    if not data or "otp" not in data:
+        return {"error": "otp required"}, 400
+
+    username = session.get("user") or data.get("username")
+
+    if not username:
+        return {"error": "username missing"}, 400
+
+    if verify_otp(username, data.get("otp")):
         token = generate_dynamic_id(username)
 
         # 🔐 STORE TOKEN IN SESSION
         session["dynamic_id"] = token
         session["auth"] = "2fa_ok"
 
+        is_user_admin = is_admin(username)
+
         AuditLogger.log_event(username, "verify_otp", "success")
         return {
             "status": "2FA success",
-            "dynamic_id": token
+            "dynamic_id": token,
+            "is_admin": is_user_admin
         }
 
     AuditLogger.log_event(username, "verify_otp", "failed")
@@ -186,8 +296,17 @@ def upload(user):
     # 2. AI Analysis
     analysis = AIAnalyzer.analyze_file(file_path, filename, user)
     
+    # 🛡️ IMMEDIATE SELF-HEALING: If risk is extreme, blacklist the token immediately
+    if analysis["risk_score"] >= 90:
+        token = request.headers.get("Authorization") or session.get("dynamic_id")
+        SecurityHarden.detect_intrusion_and_blacklist(token, "Extreme Risk File Upload")
+    
     # 3. Encryption at Rest
-    Vault.encrypt_file(file_path)
+    try:
+        Vault.encrypt_file(file_path)
+    except Exception as e:
+        AuditLogger.log_event(user, f"upload:{filename}", f"failed:encryption_error:{str(e)}")
+        return {"error": "failed to secure file"}, 500
     
     # 4. Audit Log
     AuditLogger.log_event(user, f"upload:{filename}", "success")
@@ -209,7 +328,10 @@ def files(user):
     if not os.path.exists(user_dir):
         return {"files": []}
 
-    return {"files": os.listdir(user_dir)}
+    # Filter out .quarantine files
+    all_files = os.listdir(user_dir)
+    safe_files = [f for f in all_files if not f.endswith(".quarantine")]
+    return {"files": safe_files}
 
 
 # =====================
@@ -240,6 +362,46 @@ def download(user, filename):
     except Exception as e:
         AuditLogger.log_event(user, f"download:{filename}", f"failed:{str(e)}")
         return {"error": "decryption failed"}, 500
+
+
+# =====================
+# DELETE ACCOUNT
+# =====================
+@app.route("/delete-account", methods=["POST"])
+@jwt_required
+def delete_account(user):
+    data = request.json
+    if not data or "password" not in data:
+        return {"error": "password required to delete account"}, 400
+
+    # 1. Verify Password
+    if not verify_user(user, data["password"]):
+        AuditLogger.log_event(user, "delete_account", "failed:invalid_password")
+        return {"error": "invalid password"}, 401
+
+    # 2. Delete Files from Disk
+    user_dir = os.path.join(UPLOAD_FOLDER, user)
+    if os.path.exists(user_dir):
+        try:
+            shutil.rmtree(user_dir)
+        except Exception as e:
+            print(f"Error deleting user directory: {e}")
+
+    # 3. Delete Metadata from DB
+    from improvise.db import get_db_context
+    try:
+        with get_db_context() as db:
+            db.execute("DELETE FROM file_metadata WHERE owner = ?", (user,))
+    except Exception as e:
+        print(f"Error deleting metadata: {e}")
+
+    # 4. Delete User from DB
+    if delete_user_db(user):
+        AuditLogger.log_event(user, "delete_account", "success")
+        session.clear()
+        return {"status": "account deleted successfully"}
+    
+    return {"error": "failed to delete account record"}, 500
 
 
 # =====================

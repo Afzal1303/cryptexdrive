@@ -1,12 +1,15 @@
 import jwt
 import datetime
+import uuid
 from config import SECRET_KEY
 
 def generate_dynamic_id(username):
+    now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         "user": username,
-        "iat": datetime.datetime.utcnow(),
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        "jti": str(uuid.uuid4()),
+        "iat": now,
+        "exp": now + datetime.timedelta(minutes=30)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 

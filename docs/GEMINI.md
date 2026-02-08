@@ -223,7 +223,17 @@ Sent via HTTP Authorization header
 
 Validated on every protected route
 
-8. Authorization Middleware (JWT Guard)
+Stored in `sessionStorage` (volatily cleared on tab/browser close)
+
+8. Frontend Session Management (Verified)
+
+To maintain the "No Permanent Sessions" principle, the frontend implements the following:
+
+- **Volatile Storage:** Tokens are stored in `sessionStorage`, ensuring they do not persist after the browser session ends.
+- **Proactive Verification:** Upon every page load, the system immediately validates the existing token against the `/secure` backend endpoint before granting access to the UI.
+- **Auto-Lock:** If the token is invalid, expired, or missing, the system automatically redirects to the login gateway.
+
+9. Authorization Middleware (JWT Guard)
 Role of Middleware
 
 Intercepts protected API requests

@@ -18,9 +18,29 @@ function initUI() {
     const fileSection = document.getElementById("fileSection");
     const authSection = document.getElementById("authSection");
     
+    TOKEN = sessionStorage.getItem("dynamic_id") || "";
+    const isAdmin = sessionStorage.getItem("is_admin") === "true";
+
     if (TOKEN) {
-        fileSection.style.display = "block";
-        authSection.style.display = "none";
+        // Verify token validity before showing the file section
+        fetch("/secure", {
+            headers: { "Authorization": TOKEN }
+        }).then(res => {
+            if (res.ok) {
+                fileSection.style.display = "block";
+                authSection.style.display = "none";
+                
+                if (isAdmin) {
+                    document.getElementById("adminLink").style.display = "block";
+                }
+                loadFiles();
+            } else {
+                // Token invalid or expired
+                logout();
+            }
+        }).catch(() => {
+            logout();
+        });
     }
 }
 
@@ -85,13 +105,22 @@ async function verifyOtp() {
     });
 
     const data = await res.json();
-    if (data.dynamic_id) {
-        TOKEN = data.dynamic_id;
-        document.getElementById("displayUser").innerText = username;
-        document.getElementById("authSection").style.display = "none";
-        document.getElementById("fileSection").style.display = "block";
-        loadFiles();
-    } else {
+        if (data.dynamic_id) {
+            TOKEN = data.dynamic_id;
+            sessionStorage.setItem("dynamic_id", TOKEN); 
+            sessionStorage.setItem("is_admin", data.is_admin ? "true" : "false");
+            
+            document.getElementById("displayUser").innerText = username;
+            document.getElementById("authSection").style.display = "none";
+            document.getElementById("fileSection").style.display = "block";
+            
+            if (data.is_admin) {
+                document.getElementById("adminLink").style.display = "block";
+            }
+    
+            loadFiles();
+        }
+     else {
         alert(data.error);
     }
 }
@@ -142,6 +171,8 @@ async function uploadFile() {
 async function logout() {
     await fetch("/logout", { method: "POST" });
     TOKEN = "";
+    sessionStorage.removeItem("dynamic_id");
+    sessionStorage.removeItem("is_admin");
     document.getElementById("authSection").style.display = "block";
     document.getElementById("fileSection").style.display = "none";
     document.getElementById("otpSection").style.display = "none";
@@ -149,20 +180,103 @@ async function logout() {
 }
 
 // LOAD FILES
+
 async function loadFiles() {
+
     const res = await fetch("/files", {
+
         headers: { "Authorization": TOKEN }
+
     });
 
+
+
     const data = await res.json();
+
     const list = document.getElementById("fileList");
+
     list.innerHTML = "";
 
+
+
     if (data.files) {
+
         data.files.forEach(filename => {
+
             const li = document.createElement("li");
-            li.innerHTML = `${filename} <a href="/download/${filename}" target="_blank">[Download]</a>`;
+
+            li.className = "file-item";
+
+            li.innerHTML = `
+
+                <span class="file-name">${filename}</span>
+
+                <button onclick="downloadFile('${filename}')" class="btn-small">Download</button>
+
+            `;
+
             list.appendChild(li);
+
         });
+
     }
+
+}
+
+
+
+async function downloadFile(filename) {
+
+    addLog(`Downloading ${filename}...`);
+
+    try {
+
+        const res = await fetch(`/download/${filename}`, {
+
+            headers: { "Authorization": TOKEN }
+
+        });
+
+
+
+        if (!res.ok) {
+
+            const errorData = await res.json();
+
+            alert("Download failed: " + errorData.error);
+
+            return;
+
+        }
+
+
+
+        const blob = await res.blob();
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+
+        a.href = url;
+
+        a.download = filename;
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        window.URL.revokeObjectURL(url);
+
+        document.body.removeChild(a);
+
+        addLog(`Download complete: ${filename}`);
+
+    } catch (err) {
+
+        console.error("Download Error:", err);
+
+        alert("Download failed due to a network error.");
+
+    }
+
 }

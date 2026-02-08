@@ -1,4 +1,5 @@
 import os
+import hashlib
 # import magic # Requires python-magic
 from .db import get_db_context
 
@@ -8,8 +9,24 @@ class AIAnalyzer:
     ALLOWED_EXTENSIONS = {'.pdf', '.png', '.jpg', '.jpeg', '.txt', '.docx'}
     
     @staticmethod
+    def calculate_hash(file_path):
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+
+    @staticmethod
     def analyze_file(file_path, filename, username):
+        if not os.path.exists(file_path):
+            return {
+                "risk_score": 0,
+                "analysis": "File not found for analysis.",
+                "safe": True
+            }
+
         file_size = os.path.getsize(file_path)
+        file_hash = AIAnalyzer.calculate_hash(file_path)
         ext = os.path.splitext(filename)[1].lower()
         
         risk_score = 0
@@ -34,9 +51,9 @@ class AIAnalyzer:
         # Save analysis to DB
         with get_db_context() as db:
             db.execute("""
-                INSERT INTO file_metadata (filename, owner, size, risk_score, ai_analysis)
-                VALUES (?, ?, ?, ?, ?)
-            """, (filename, username, file_size, risk_score, analysis_summary))
+                INSERT OR REPLACE INTO file_metadata (file_hash, filename, owner, size, risk_score, ai_analysis, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+            """, (file_hash, filename, username, file_size, risk_score, analysis_summary))
             
         return {
             "risk_score": risk_score,

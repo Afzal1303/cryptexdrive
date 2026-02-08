@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptexDrive | Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        .admin-layout {
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .stat-card h3 {
+            font-size: 0.9em;
+            color: #888;
+            margin: 0 0 10px 0;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--highlight);
+        }
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            height: 300px;
+        }
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .log-table th, .log-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .log-table th {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--highlight);
+        }
+        .status-success { color: #00ff88; }
+        .status-failed { color: #ff4444; }
+        .status-healed { color: #00d4ff; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body onload="initAdmin()">
+
+<div class="admin-layout">
+    <div class="glass card full-card">
+        <div class="user-header">
+            <h1>ADMIN <span class="highlight">DASHBOARD</span></h1>
+            <button onclick="window.location.href='/'" class="btn-secondary">Back to Vault</button>
+        </div>
+
+        <!-- 📊 STATS & ANALYTICS -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <div class="stat-value" id="statUsers">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Stored Files</h3>
+                <div class="stat-value" id="statFiles">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg Risk Score</h3>
+                <div class="stat-value" id="statRisk">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Quarantined</h3>
+                <div class="stat-value" id="statQuarantine">-</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="riskChart"></canvas>
+        </div>
+        
+        <div class="explorer-header">
+            <h3>Recent System Activity</h3>
+            <button onclick="loadLogs()" class="btn-small">Refresh Logs</button>
+        </div>
+
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>IP Address</th>
+                </tr>
+            </thead>
+            <tbody id="logBody">
+                <!-- Logs will be loaded here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const TOKEN = sessionStorage.getItem("dynamic_id") || "";
+
+    async function initAdmin() {
+        if (!TOKEN) {
+            window.location.href = "/"; 
+            return;
+        }
+        await loadStats();
+        await loadLogs();
+    }
+
+    async function loadStats() {
+        const response = await fetch("/api/admin/stats", {
+            headers: { "Authorization": `Bearer ${TOKEN}` }
+        });
+        
+        if (response.status === 403 || response.status === 401) {
+             alert("Access Denied.");
+             window.location.href = "/";
+             return;
+        }
+
+        const stats = await response.json();
+        
+        document.getElementById("statUsers").innerText = stats.total_users;
+        document.getElementById("statFiles").innerText = stats.total_files;
+        document.getElementById("statRisk").innerText = stats.avg_risk;
+        document.getElementById("statQuarantine").innerText = stats.quarantined;
+
+        renderChart(stats.risk_dist);
+    }
+
+    function renderChart(dist) {
+        const ctx = document.getElementById('riskChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Safe (<50)', 'Warning (50-79)', 'Critical (80+)'],
+                datasets: [{
+                    label: 'File Risk Distribution',
+                    data: [dist.safe, dist.warning, dist.critical],
+                    backgroundColor: [
+                        'rgba(0, 255, 136, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(255, 68, 68, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(0, 255, 136, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(255, 68, 68, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ccc' }
+                    },
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ccc' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#ccc' } }
+                }
+            }
+        });
+    }
+
+    async function loadLogs() {
+        const response = await fetch("/api/admin/logs", {
+            headers: { "Authorization": `Bearer ${TOKEN}` }
+        });
+
+        const data = await response.json();
+        const body = document.getElementById("logBody");
+        body.innerHTML = "";
+
+        data.logs.forEach(log => {
+            const row = document.createElement("tr");
+            let statusColor = "";
+            if (log.status.includes("success")) statusColor = "status-success";
+            else if (log.status.includes("failed")) statusColor = "status-failed";
+            else if (log.status.includes("healed")) statusColor = "status-healed";
+
+            row.innerHTML = `
+                <td>${log.timestamp}</td>
+                <td>${log.username}</td>
+                <td>${log.action}</td>
+                <td class="${statusColor}">${log.status}</td>
+                <td>${log.ip_address}</td>
+            `;
+            body.appendChild(row);
+        });
+    }
+</script>
+
+</body>
+</html>

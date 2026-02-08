@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptexDrive | Admin Access</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        .admin-login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #0a0a0a;
+        }
+        .admin-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+        .admin-card h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--highlight);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .admin-tag {
+            text-align: center;
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 5px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="admin-login-container">
+    <div id="authSection" class="glass card admin-card">
+        <div class="admin-tag">SECURE ADMINISTRATOR GATEWAY</div>
+        <div id="loginForm">
+            <h2>Admin Login</h2>
+            <input id="username" placeholder="Admin Username">
+            <input id="password" type="password" placeholder="Password">
+            <button onclick="adminLogin()" class="btn-primary" style="width: 100%;">Authorize</button>
+            <p class="switch-mode" style="text-align: center; margin-top: 20px;">
+                <a href="/">Return to User Portal</a>
+            </p>
+        </div>
+
+        <div id="otpSection" style="display: none;">
+            <h2>MFA Required</h2>
+            <p style="text-align: center; font-size: 0.9em; margin-bottom: 20px;">Admin level clearance requires secondary verification.</p>
+            <button onclick="sendOtp()" class="btn-secondary" style="width: 100%; margin-bottom: 10px;">Request OTP</button>
+            <input id="otp" placeholder="Enter 6-Digit Code">
+            <button onclick="verifyOtp()" class="btn-primary" style="width: 100%;">Verify Clearance</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function adminLogin() {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        const res = await fetch("/api/admin/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("otpSection").style.display = "block";
+        } else {
+            alert(data.error || "Access Denied");
+        }
+    }
+
+    async function sendOtp() {
+        const res = await fetch("/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+        });
+
+        const data = await res.json();
+        alert(data.status || data.error);
+    }
+
+    async function verifyOtp() {
+        const otp = document.getElementById("otp").value;
+        const username = document.getElementById("username").value;
+
+        const res = await fetch("/verify-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, otp })
+        });
+
+        const data = await res.json();
+        if (data.dynamic_id) {
+            if (!data.is_admin) {
+                alert("Critical Error: Non-admin identity detected.");
+                window.location.href = "/";
+                return;
+            }
+            sessionStorage.setItem("dynamic_id", data.dynamic_id);
+            sessionStorage.setItem("is_admin", "true");
+            window.location.href = "/admin/dashboard";
+        } else {
+            alert(data.error);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -35,13 +35,21 @@ def init_enhanced_tables():
         db.execute("""
             CREATE TABLE IF NOT EXISTS file_metadata (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_hash TEXT UNIQUE,
+                file_hash TEXT,
                 filename TEXT,
                 owner TEXT,
                 size INTEGER,
                 mime_type TEXT,
                 risk_score INTEGER DEFAULT 0,
+                is_active INTEGER DEFAULT 1,
                 ai_analysis TEXT,
-                upload_time DATETIME DEFAULT CURRENT_TIMESTAMP
+                upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(owner, filename)
             )
         """)
+        
+        # Ensure is_active exists if table was already created
+        try:
+            db.execute("ALTER TABLE file_metadata ADD COLUMN is_active INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass # Already exists
