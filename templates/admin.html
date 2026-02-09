@@ -70,7 +70,7 @@
     <div class="glass card full-card">
         <div class="user-header">
             <h1>ADMIN <span class="highlight">DASHBOARD</span></h1>
-            <button onclick="window.location.href='/'" class="btn-secondary">Back to Vault</button>
+            <button onclick="window.location.href='{{ USER_PORTAL_URL }}/'" class="btn-secondary">Back to Vault</button>
         </div>
 
         <!-- 📊 STATS & ANALYTICS -->
@@ -153,6 +153,8 @@
     }
 
     function renderChart(dist) {
+        if (!dist) dist = { safe: 0, warning: 0, critical: 0 };
+        
         const ctx = document.getElementById('riskChart').getContext('2d');
         new Chart(ctx, {
             type: 'bar',
@@ -160,7 +162,7 @@
                 labels: ['Safe (<50)', 'Warning (50-79)', 'Critical (80+)'],
                 datasets: [{
                     label: 'File Risk Distribution',
-                    data: [dist.safe, dist.warning, dist.critical],
+                    data: [dist.safe || 0, dist.warning || 0, dist.critical || 0],
                     backgroundColor: [
                         'rgba(0, 255, 136, 0.5)',
                         'rgba(255, 206, 86, 0.5)',
@@ -196,30 +198,45 @@
     }
 
     async function loadLogs() {
-        const response = await fetch("/api/admin/logs", {
-            headers: { "Authorization": `Bearer ${TOKEN}` }
-        });
+        try {
+            const response = await fetch("/api/admin/logs", {
+                headers: { "Authorization": `Bearer ${TOKEN}` }
+            });
 
-        const data = await response.json();
-        const body = document.getElementById("logBody");
-        body.innerHTML = "";
+            if (!response.ok) return;
 
-        data.logs.forEach(log => {
-            const row = document.createElement("tr");
-            let statusColor = "";
-            if (log.status.includes("success")) statusColor = "status-success";
-            else if (log.status.includes("failed")) statusColor = "status-failed";
-            else if (log.status.includes("healed")) statusColor = "status-healed";
+            const data = await response.json();
+            const body = document.getElementById("logBody");
+            body.innerHTML = "";
 
-            row.innerHTML = `
-                <td>${log.timestamp}</td>
-                <td>${log.username}</td>
-                <td>${log.action}</td>
-                <td class="${statusColor}">${log.status}</td>
-                <td>${log.ip_address}</td>
-            `;
-            body.appendChild(row);
-        });
+            if (!data.logs || data.logs.length === 0) {
+                body.innerHTML = "<tr><td colspan='5' style='text-align:center'>No activity recorded.</td></tr>";
+                return;
+            }
+
+            data.logs.forEach(log => {
+                const row = document.createElement("tr");
+                let statusColor = "";
+                if (log.status.includes("success")) statusColor = "status-success";
+                else if (log.status.includes("failed")) statusColor = "status-failed";
+                else if (log.status.includes("healed")) statusColor = "status-healed";
+
+                // Format timestamp
+                const date = new Date(log.timestamp + "Z"); // Assume UTC if no timezone
+                const formattedDate = isNaN(date.getTime()) ? log.timestamp : date.toLocaleString();
+
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${log.username}</td>
+                    <td>${log.action}</td>
+                    <td class="${statusColor}">${log.status}</td>
+                    <td>${log.ip_address}</td>
+                `;
+                body.appendChild(row);
+            });
+        } catch (e) {
+            console.error("Failed to load logs:", e);
+        }
     }
 </script>
 

@@ -5,8 +5,10 @@ import os
 import io
 import re
 import shutil
+from flask_cors import CORS
 
 from config import *
+from cloud.skystore import SkyStore
 from engine.gatekeeper import (
     init_users,
     verify_user,
@@ -31,6 +33,7 @@ from improvise import (
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+CORS(app)
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -59,87 +62,7 @@ bootstrap_improvements()
 # =====================
 @app.route("/")
 def index():
-    return render_template("index.html")
-
-
-# =====================
-# ADMIN DASHBOARD & LOGIN
-# =====================
-@app.route("/admin/login")
-def admin_login_page():
-    return render_template("admin_login.html")
-
-@app.route("/api/admin/login", methods=["POST"])
-def admin_login_api():
-    data = request.json
-    if not data or not all(k in data for k in ("username", "password")):
-        return {"error": "missing credentials"}, 400
-
-    username = data["username"]
-    if verify_user(username, data["password"]):
-        if not is_admin(username):
-            AuditLogger.log_event(username, "admin_login_attempt", "failed:not_admin")
-            return {"error": "Access Denied: Not an administrator"}, 403
-            
-        session.clear()
-        session["user"] = username
-        session["auth"] = "password_ok"
-        AuditLogger.log_event(username, "admin_login_password", "success")
-        return {"status": "password ok"}
-
-    AuditLogger.log_event(data.get("username", "unknown"), "admin_login_password", "failed")
-    return {"error": "invalid credentials"}, 401
-
-@app.route("/admin/dashboard")
-def admin_dashboard_page():
-    token = session.get("dynamic_id")
-    if not token:
-        return redirect(url_for("admin_login_page"))
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        user = payload["user"]
-        if not is_admin(user):
-            AuditLogger.log_event(user, "admin_dashboard_access", "denied:not_admin")
-            return "Access Denied", 403
-        return render_template("admin.html")
-    except Exception:
-        return redirect(url_for("admin_login_page"))
-
-@app.route("/api/admin/logs")
-@admin_required
-def get_admin_logs(user):
-    logs = AuditLogger.get_all_logs()
-    return {"logs": logs}
-
-@app.route("/api/admin/stats")
-@admin_required
-def get_admin_stats(user):
-    from improvise.db import get_db_context
-    stats = {}
-    
-    with get_db_context() as db:
-        # Total Users
-        stats["total_users"] = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        
-        # Total Files
-        stats["total_files"] = db.execute("SELECT COUNT(*) FROM file_metadata").fetchone()[0]
-        
-        # Average Risk Score
-        avg_risk = db.execute("SELECT AVG(risk_score) FROM file_metadata").fetchone()[0]
-        stats["avg_risk"] = round(avg_risk, 1) if avg_risk else 0
-        
-        # Quarantined Files
-        stats["quarantined"] = db.execute("SELECT COUNT(*) FROM file_metadata WHERE is_active=0").fetchone()[0]
-        
-        # Risk Distribution (Safe, Warning, Critical)
-        stats["risk_dist"] = {
-            "safe": db.execute("SELECT COUNT(*) FROM file_metadata WHERE risk_score < 50").fetchone()[0],
-            "warning": db.execute("SELECT COUNT(*) FROM file_metadata WHERE risk_score >= 50 AND risk_score < 80").fetchone()[0],
-            "critical": db.execute("SELECT COUNT(*) FROM file_metadata WHERE risk_score >= 80").fetchone()[0]
-        }
-        
-    return stats
+    return render_template("index.html", ADMIN_PANEL_URL=ADMIN_PANEL_URL)
 
 
 # =====================
@@ -301,15 +224,27 @@ def upload(user):
         token = request.headers.get("Authorization") or session.get("dynamic_id")
         SecurityHarden.detect_intrusion_and_blacklist(token, "Extreme Risk File Upload")
     
-    # 3. Encryption at Rest
+    # 3. Encryption & Cloud Storage
     try:
-        Vault.encrypt_file(file_path)
+        with open(file_path, "rb") as f:
+            raw_data = f.read()
+        
+        encrypted_data = Vault.encrypt_data(raw_data)
+        
+        # Save to SkyStore (Hybrid)
+        SkyStore.save_file(user, filename, encrypted_data)
+        
+        # Optionally remove the temp local file if using S3
+        if SkyStore.get_client() and S3_BUCKET:
+             os.remove(file_path)
+
     except Exception as e:
-        AuditLogger.log_event(user, f"upload:{filename}", f"failed:encryption_error:{str(e)}")
+        AuditLogger.log_event(user, f"upload:{filename}", f"failed:encryption_or_cloud_error:{str(e)}")
         return {"error": "failed to secure file"}, 500
     
     # 4. Audit Log
     AuditLogger.log_event(user, f"upload:{filename}", "success")
+
 
     return {
         "status": "uploaded", 
@@ -324,12 +259,8 @@ def upload(user):
 @app.route("/files", methods=["GET"])
 @jwt_required
 def files(user):
-    user_dir = os.path.join(UPLOAD_FOLDER, user)
-    if not os.path.exists(user_dir):
-        return {"files": []}
-
+    all_files = SkyStore.list_files(user)
     # Filter out .quarantine files
-    all_files = os.listdir(user_dir)
     safe_files = [f for f in all_files if not f.endswith(".quarantine")]
     return {"files": safe_files}
 
@@ -342,15 +273,17 @@ def files(user):
 def download(user, filename):
     # Sanitize input
     filename = SecurityHarden.sanitize_path(filename)
-    file_path = os.path.join(UPLOAD_FOLDER, user, filename)
     
-    if not os.path.exists(file_path):
-        AuditLogger.log_event(user, f"download:{filename}", "failed:not_found")
-        return {"error": "file not found"}, 404
-
     try:
-        # Decrypt in memory for safe delivery
-        decrypted_data = Vault.decrypt_file_data(file_path)
+        # Get encrypted data from SkyStore
+        encrypted_data = SkyStore.get_file_data(user, filename)
+        
+        if encrypted_data is None:
+            AuditLogger.log_event(user, f"download:{filename}", "failed:not_found")
+            return {"error": "file not found"}, 404
+
+        # Decrypt in memory
+        decrypted_data = Vault.decrypt_data(encrypted_data)
         
         AuditLogger.log_event(user, f"download:{filename}", "success")
         
@@ -361,7 +294,7 @@ def download(user, filename):
         )
     except Exception as e:
         AuditLogger.log_event(user, f"download:{filename}", f"failed:{str(e)}")
-        return {"error": "decryption failed"}, 500
+        return {"error": "decryption or download failed"}, 500
 
 
 # =====================
@@ -379,13 +312,13 @@ def delete_account(user):
         AuditLogger.log_event(user, "delete_account", "failed:invalid_password")
         return {"error": "invalid password"}, 401
 
-    # 2. Delete Files from Disk
-    user_dir = os.path.join(UPLOAD_FOLDER, user)
-    if os.path.exists(user_dir):
-        try:
-            shutil.rmtree(user_dir)
-        except Exception as e:
-            print(f"Error deleting user directory: {e}")
+    # 2. Delete Files from Storage
+    try:
+        user_files = SkyStore.list_files(user)
+        for f in user_files:
+            SkyStore.delete_file(user, f)
+    except Exception as e:
+        print(f"Error cleaning up storage for user {user}: {e}")
 
     # 3. Delete Metadata from DB
     from improvise.db import get_db_context

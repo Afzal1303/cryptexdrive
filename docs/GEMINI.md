@@ -50,7 +50,7 @@ Backend Stack
 
 Python (Flask)
 
-SQLite (local persistence)
+SQLite (local fallback) / PostgreSQL (production ready)
 
 Flask-Mail (Gmail SMTP)
 
@@ -58,7 +58,9 @@ Werkzeug Security (password hashing)
 
 PyJWT (Dynamic ID generation)
 
-Cryptography (AES-256 encryption at rest)
+Cryptography (AES-256 in-memory encryption)
+
+Boto3 (Hybrid S3 Storage)
 
 Python-Dotenv (Environment variable management)
 
@@ -252,7 +254,7 @@ No route bypass possible
 
 Consistent enforcement across APIs
 
-9. File Handling Module (Current Implementation)
+9. File Handling Module (Hybrid Storage)
 Supported Operations
 
 File upload
@@ -263,36 +265,38 @@ File download
 
 Storage Strategy
 
-Files stored on server filesystem
+Files can be stored on server filesystem or S3-compatible cloud storage.
 
-Each user has a dedicated directory
+SkyStore abstraction automatically handles fallback logic.
 
-Directory name derived from verified user
+Each user has a dedicated directory/prefix.
 
-No shared storage between users
+No shared storage between users.
 
 Access Control
 
-File operations require valid Dynamic ID
+File operations require valid Dynamic ID.
 
-Users cannot access other users’ files
+Users cannot access other users’ files.
 
-Middleware enforces ownership
+Middleware enforces ownership.
 
 10. Project Progress Status
 ✅ Completed Phases
 
-User registration & login
+User registration & login (RBAC/Admin support)
 
 Password hashing & verification
 
-Gmail-based OTP system
+Gmail-based OTP system (with rate limiting)
 
 OTP expiration & validation
 
-Dynamic ID (JWT) generation
+Dynamic ID (JWT) generation (Short-lived 30m)
 
-Authorization middleware
+Authorization middleware (@jwt_required)
+
+Token Blacklisting (Redis-ready with in-memory fallback)
 
 Secure file upload (with AES-256 encryption)
 
@@ -300,15 +304,23 @@ File listing & download logic
 
 AI-assisted file analysis (Cryptex AI Engine)
 
-Secure audit logging
+Automated Self-Healing (Risk-based quarantine)
+
+Secure audit logging (IP & Timestamp tracking)
 
 Professional Frontend Overhaul (Secure Vault Theme)
 
+Admin Audit Dashboard (/admin/dashboard)
+
+Hybrid Cloud Storage (Local + S3)
+
+Production Deployment Config (Procfile, Gunicorn, PostgreSQL support)
+
 ⏳ Pending Phases
 
-Cloud Deployment (AWS / Render / Railway)
+Global Scalability (CDN & Multi-region)
 
-Advanced Access activity tracking UI
+Advanced Analytics UI (Predictive Risk Modeling)
 
 11. AI Engine – Operational Rules (Active)
 
@@ -327,9 +339,11 @@ Detects extension mismatches and size anomalies
 
 Logs reports to the `file_metadata` table
 
+Triggering automated quarantine if Risk > 80 (Self-Healing)
+
 AI Operational Rules
 
-AI must never modify files automatically
+AI must never modify files automatically (except quarantine movement)
 
 AI must only analyze and suggest
 
@@ -341,7 +355,7 @@ AI must never generate credentials or tokens
 
 AI must never bypass authentication
 
-AI must be strictly read-only
+AI must be strictly read-only for file contents
 
 AI output must be explainable and auditable
 
@@ -369,28 +383,39 @@ python app.py
 
 CryptexDrive is currently a fully functional secure backend system with:
 
-Multi-step authentication
+Multi-step authentication & Rate-limited OTP
 
-Verified OTP workflow
+Dynamic ID authorization with Blacklisting
 
-Dynamic ID authorization
+Secure hybrid file handling (Local + S3)
 
-Secure file handling
+AI-Driven Risk Analysis & Self-Healing
 
-Clean modular design
+Administrative Audit Control
 
-The system is stable, review-ready, and expandable.
+The system is stable, review-ready, and 100% core milestone complete.
 
 CryptexDrive – Project Structure Architecture
 CryptexDrive/
 │
+├── app/                        # Application entry points
+│   ├── app.py                  # Main application logic
+│   └── admin_app.py            # Admin portal backend logic
+│
+├── admin/                      # Administrative utilities
+│   ├── create_admin.py         # CLI: Create initial admin user
+│   └── promote_admin.py        # CLI: Promote user to admin
+│
 ├── cloud/                      # Cloud & storage abstraction
-│   └── skystore.py             # Storage helper (future cloud extension)
+│   └── skystore.py             # Hybrid Storage Helper (Local + S3)
 │
 ├── docs/                       # Project documentation & notes
+│   ├── GEMINI.md               # Project Context & Single Source of Truth
+│   └── progress.md             # Detailed milestone tracking
 │
 ├── engine/                     # Core security & authentication engine
 │   ├── auth.py                 # JWT (Dynamic ID) authorization middleware
+│   ├── blacklist.py            # Token revocation logic
 │   ├── gatekeeper.py           # User auth, OTP logic, password verification
 │   ├── phantomid.py            # Dynamic ID (JWT) generator
 │   └── vaultcore.py            # Security utilities
@@ -399,7 +424,8 @@ CryptexDrive/
 │   ├── ai_analyzer.py          # AI risk scoring engine
 │   ├── audit.py                # Security audit logger
 │   ├── db.py                   # Hardened DB context managers
-│   ├── vault.py                # AES-256 Encryption handler
+│   ├── self_healing.py         # Automated risk mitigation & quarantine
+│   ├── vault.py                # Stateless AES-256 Encryption handler
 │   └── security.py             # Path sanitization & defense
 │
 ├── static/                     # Frontend static assets
@@ -407,14 +433,16 @@ CryptexDrive/
 │   └── styles.css              # Cyber-security vault styling
 │
 ├── templates/                  # HTML templates
-│   └── index.html              # Modern glassmorphism UI
+│   ├── index.html              # Modern glassmorphism UI
+│   ├── admin.html              # Admin Audit Dashboard
+│   └── admin_login.html        # Secure admin gateway
 │
-├── uploads/                    # User file storage (Encrypted)
+├── uploads/                    # User file storage (Fallback)
 ├── venv/                       # Python virtual environment
 ├── .env                        # Environment variables (Secrets)
-├── app.py                      # Application entry point (Integrated)
 ├── config.py                   # Configuration loader
-├── cryptex.db                  # SQLite database
+├── Procfile                    # Cloud deployment process file
+├── cryptex.db                  # SQLite database (Local)
 └── database.py                 # Database helper utilities
 
 🏁 Project Status Summary
@@ -425,5 +453,6 @@ Dynamic ID	✅ Completed
 Encryption	✅ AES-256 Active
 AI Engine	✅ Active
 Audit Logs	✅ Active
-UI Overhaul	✅ Cyber Vault (95%)
-Cloud Deploy	❌ Pending
+UI Overhaul	✅ Cyber Vault (100%)
+Cloud Ready	✅ SkyStore Active
+Postgres Support	✅ Configured

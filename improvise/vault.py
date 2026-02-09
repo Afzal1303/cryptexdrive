@@ -13,20 +13,30 @@ class Vault:
     """Handles file encryption and decryption at rest."""
     
     @staticmethod
-    def encrypt_file(file_path):
+    def encrypt_data(data):
+        """Encrypts bytes in memory."""
         fernet = Fernet(get_vault_key())
+        return fernet.encrypt(data)
+
+    @staticmethod
+    def decrypt_data(encrypted_data):
+        """Decrypts bytes in memory."""
+        fernet = Fernet(get_vault_key())
+        return fernet.decrypt(encrypted_data)
+
+    @staticmethod
+    def encrypt_file(file_path):
         with open(file_path, "rb") as f:
             data = f.read()
         
-        encrypted_data = fernet.encrypt(data)
+        encrypted_data = Vault.encrypt_data(data)
         with open(file_path, "wb") as f:
             f.write(encrypted_data)
         return True
 
     @staticmethod
     def decrypt_file_data(file_path):
-        fernet = Fernet(get_vault_key())
         with open(file_path, "rb") as f:
             encrypted_data = f.read()
         
-        return fernet.decrypt(encrypted_data)
+        return Vault.decrypt_data(encrypted_data)

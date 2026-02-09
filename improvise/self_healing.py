@@ -3,7 +3,7 @@ import time
 import threading
 from .db import get_db_context
 from .audit import AuditLogger
-from config import UPLOAD_FOLDER
+from cloud.skystore import SkyStore
 
 def monitor_and_heal():
     """
@@ -23,15 +23,16 @@ def monitor_and_heal():
                 for file_info in files_to_heal:
                     filename = file_info['filename']
                     owner = file_info['owner']
-                    
-                    user_dir = os.path.join(UPLOAD_FOLDER, owner)
-                    old_path = os.path.join(user_dir, filename)
                     new_filename = f"{filename}.quarantine"
-                    new_path = os.path.join(user_dir, new_filename)
-
-                    if os.path.exists(old_path):
-                        # 1. Rename the file
-                        os.rename(old_path, new_path)
+                    
+                    # 1. Move/Rename in SkyStore
+                    encrypted_data = SkyStore.get_file_data(owner, filename)
+                    if encrypted_data:
+                        # Save under new name
+                        SkyStore.save_file(owner, new_filename, encrypted_data)
+                        
+                        # Delete original high-risk file
+                        SkyStore.delete_file(owner, filename)
                         
                         # 2. Update database
                         db.execute("""
